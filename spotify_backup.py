@@ -10,7 +10,7 @@ USER_ID = os.environ["USER_ID"]
 FIELDS = ["added_at", "artist", "name", "id", "meta"]
 
 root_path = os.path.dirname(os.path.realpath(__file__))
-playlists_path = os.path.join(root_path, "playlists")
+playlists_path = os.path.join(root_path, "data", "playlists")
 print(playlists_path)
 os.makedirs(playlists_path, exist_ok=True)
 
