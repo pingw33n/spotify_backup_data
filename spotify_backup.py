@@ -22,9 +22,48 @@ def get(url):
 	r = requests.get(url=url, headers={"Authorization": "Bearer {}".format(token)})
 	return json.loads(r.text)
 
-playlists_url = "https://api.spotify.com/v1/users/{}/playlists".format(USER_ID)
-while playlists_url is not None:
-	playlists = get(playlists_url)
+def get_all(url):
+	assert url is not None
+	while url is not None:
+		obj = get(url)
+		print(json.dumps(obj, indent=2))
+		url = obj["next"]
+		yield obj
+
+def make_track_entry(track):
+	global FIELDS
+	added_at = track["added_at"]
+	artist = track["track"]["artists"][0]["name"]
+	track_name = track["track"]["name"]
+	track_id = track["track"]["id"]
+	return {
+		FIELDS[0]: added_at,
+		FIELDS[1]: artist,
+		FIELDS[2]: track_name,
+		FIELDS[3]: track_id,
+		FIELDS[4]: None,
+	}
+
+def save_playlist(name, tracks):
+	all_tracks.sort(key=lambda e: e["added_at"])
+
+	meta = {
+		FIELDS[0]: None,
+		FIELDS[1]: None,
+		FIELDS[2]: None,
+		FIELDS[3]: None,
+		FIELDS[4]: json.dumps({"name": name}),
+	}
+
+	print(json.dumps(all_tracks, indent=2))
+
+	with open(os.path.join(playlists_path, "{}.csv".format(pl_name)), "w", newline="") as f:
+		w = csv.DictWriter(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL, fieldnames=FIELDS)
+		w.writeheader()
+		w.writerow(meta)
+		w.writerows(all_tracks)
+
+for playlists in get_all("https://api.spotify.com/v1/users/{}/playlists".format(USER_ID)):
 	for pl in playlists["items"]:
 		if pl["owner"]["id"] != USER_ID:
 			continue
@@ -32,41 +71,8 @@ while playlists_url is not None:
 		print(pl_name)
 
 		all_tracks = []
-
-		tracks_url = pl["href"] + "/tracks?limit=100"
-		while tracks_url is not None:
-			tracks = get(tracks_url)
-
+		for tracks in get_all(pl["href"] + "/tracks?limit=100"):
 			for track in tracks["items"]:
-				added_at = track["added_at"]
-				artist = track["track"]["artists"][0]["name"]
-				track_name = track["track"]["name"]
-				track_id = track["track"]["id"]
-				all_tracks.append({
-					FIELDS[0]: added_at,
-					FIELDS[1]: artist,
-					FIELDS[2]: track_name,
-					FIELDS[3]: track_id,
-					FIELDS[4]: None,
-				})
+				all_tracks.append(make_track_entry(track))
 
-			tracks_url = tracks["next"]
-
-		all_tracks.sort(key=lambda e: e["added_at"])
-
-		meta = {
-			FIELDS[0]: None,
-			FIELDS[1]: None,
-			FIELDS[2]: None,
-			FIELDS[3]: None,
-			FIELDS[4]: json.dumps({"name": pl_name}),
-		}
-
-		print(json.dumps(all_tracks, indent=2))
-
-		with open(os.path.join(playlists_path, "{}.csv".format(pl_name)), "w", newline="") as f:
-			w = csv.DictWriter(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL, fieldnames=FIELDS)
-			w.writeheader()
-			w.writerow(meta)
-			w.writerows(all_tracks)
-	playlists_url = playlists["next"]
+		save_playlist(pl_name, all_tracks)
