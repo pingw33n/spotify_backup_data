@@ -11,6 +11,7 @@ FIELDS = ["added_at", "artist", "name", "id", "meta"]
 
 root_path = os.path.dirname(os.path.realpath(__file__))
 playlists_path = os.path.join(root_path, "playlists")
+print(playlists_path)
 os.makedirs(playlists_path, exist_ok=True)
 
 r = requests.post("https://accounts.spotify.com/api/token", data={"grant_type": "client_credentials"}, auth=(CLIENT_ID, CLIENT_SECRET))
@@ -28,6 +29,7 @@ while playlists_url is not None:
 		if pl["owner"]["id"] != USER_ID:
 			continue
 		pl_name = pl["name"]
+		print(pl_name)
 
 		all_tracks = []
 
@@ -59,6 +61,8 @@ while playlists_url is not None:
 			FIELDS[3]: None,
 			FIELDS[4]: json.dumps({"name": pl_name}),
 		}
+
+		print(json.dumps(all_tracks, indent=2))
 
 		with open(os.path.join(playlists_path, "{}.csv".format(pl_name)), "w", newline="") as f:
 			w = csv.DictWriter(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL, fieldnames=FIELDS)
