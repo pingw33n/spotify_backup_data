@@ -8,7 +8,7 @@ on:
     - cron:  '0 * * * *'
 
 jobs:
-  build:
+  spotify_backup:
     runs-on: ubuntu-latest
 
     steps:
@@ -25,6 +25,10 @@ jobs:
           pip install requests
 
       - name: Run spotify_backup.py
+        env:
+          CLIENT_ID: ${{ secrets.CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
+          USER_ID: ${{ secrets.USER_ID }}
         run: |
           python spotify_backup.py
 
