@@ -1,6 +1,7 @@
 import csv
 import json
 import os
+from pathvalidate import sanitize_filename
 import requests
 
 CLIENT_ID = os.environ["CLIENT_ID"]
@@ -44,7 +45,7 @@ def make_track_entry(track):
 		FIELDS[4]: None,
 	}
 
-def save_playlist(name, tracks):
+def save_playlist(id, name, tracks):
 	all_tracks.sort(key=lambda e: e["added_at"])
 
 	meta = {
@@ -52,12 +53,13 @@ def save_playlist(name, tracks):
 		FIELDS[1]: None,
 		FIELDS[2]: None,
 		FIELDS[3]: None,
-		FIELDS[4]: json.dumps({"name": name}),
+		FIELDS[4]: json.dumps({"id": id, "name": name}),
 	}
 
 	print(json.dumps(all_tracks, indent=2))
 
-	with open(os.path.join(playlists_path, "{}.csv".format(pl_name)), "w", newline="") as f:
+	fname = sanitize_filename("{} {}.csv".format(name, id))
+	with open(os.path.join(playlists_path, fname), "w", newline="") as f:
 		w = csv.DictWriter(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL, fieldnames=FIELDS)
 		w.writeheader()
 		w.writerow(meta)
@@ -65,7 +67,8 @@ def save_playlist(name, tracks):
 
 for playlists in get_all("https://api.spotify.com/v1/users/{}/playlists".format(USER_ID)):
 	for pl in playlists["items"]:
-		if pl["owner"]["id"] != USER_ID:
+		owner_id = pl["owner"]["id"]
+		if not pl["public"] or owner_id not in [USER_ID, "spotify"]:
 			continue
 		pl_name = pl["name"]
 		print(pl_name)
@@ -75,4 +78,4 @@ for playlists in get_all("https://api.spotify.com/v1/users/{}/playlists".format(
 			for track in tracks["items"]:
 				all_tracks.append(make_track_entry(track))
 
-		save_playlist(pl_name, all_tracks)
+		save_playlist(pl["id"], pl_name, all_tracks)

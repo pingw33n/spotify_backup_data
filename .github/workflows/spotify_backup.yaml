@@ -22,7 +22,7 @@ jobs:
 
       - name: Setup Python deps
         run: |
-          pip install requests
+          pip install requests==2.25.0 pathvalidate==2.3.2
 
       - name: Run spotify_backup.py
         env:
