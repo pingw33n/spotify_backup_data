@@ -1,4 +1,5 @@
 import csv
+import glob
 import json
 import os
 from pathvalidate import sanitize_filename
@@ -58,8 +59,12 @@ def save_playlist(id, name, tracks):
 
 	print(json.dumps(all_tracks, indent=2))
 
-	fname = sanitize_filename("{} {}.csv".format(name, id))
-	with open(os.path.join(playlists_path, fname), "w", newline="") as f:
+	fname_suffix = sanitize_filename(f" {id}.csv")
+	for existing in glob.glob(f"{playlists_path}/*{fname_suffix}"):
+		os.remove(existing)
+
+	path = f"{playlists_path}/{sanitize_filename(name)}{fname_suffix}"
+	with open(path, "w", newline="") as f:
 		w = csv.DictWriter(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL, fieldnames=FIELDS)
 		w.writeheader()
 		w.writerow(meta)
