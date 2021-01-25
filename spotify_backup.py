@@ -68,7 +68,7 @@ def save_playlist(id, name, tracks):
 for playlists in get_all("https://api.spotify.com/v1/users/{}/playlists".format(USER_ID)):
 	for pl in playlists["items"]:
 		owner_id = pl["owner"]["id"]
-		if not pl["public"] or owner_id not in [USER_ID, "spotify"]:
+		if not pl["public"]:
 			continue
 		pl_name = pl["name"]
 		print(pl_name)
