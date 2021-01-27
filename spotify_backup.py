@@ -11,23 +11,19 @@ USER_ID = os.environ["USER_ID"]
 
 FIELDS = ["added_at", "artist", "name", "id", "meta"]
 
-root_path = os.path.dirname(os.path.realpath(__file__))
-playlists_path = os.path.join(root_path, "data", "playlists")
-print(playlists_path)
-os.makedirs(playlists_path, exist_ok=True)
+def check_status(response):
+	if response.status_code >= 400:
+		raise Exception(f"API call error: {response.text}")
 
-r = requests.post("https://accounts.spotify.com/api/token", data={"grant_type": "client_credentials"}, auth=(CLIENT_ID, CLIENT_SECRET))
-token = json.loads(r.text)["access_token"]
-
-def get(url):
-	global token
+def get(url, token):
 	r = requests.get(url=url, headers={"Authorization": "Bearer {}".format(token)})
-	return json.loads(r.text)
+	check_status(r)
+	return r.json()
 
-def get_all(url):
+def get_all(url, token):
 	assert url is not None
 	while url is not None:
-		obj = get(url)
+		obj = get(url, token)
 		print(json.dumps(obj, indent=2))
 		url = obj["next"]
 		yield obj
@@ -46,8 +42,8 @@ def make_track_entry(track):
 		FIELDS[4]: None,
 	}
 
-def save_playlist(id, name, tracks):
-	all_tracks.sort(key=lambda e: e["added_at"])
+def save_playlist(path, id, name, tracks):
+	tracks.sort(key=lambda e: e["added_at"])
 
 	meta = {
 		FIELDS[0]: None,
@@ -57,30 +53,44 @@ def save_playlist(id, name, tracks):
 		FIELDS[4]: json.dumps({"id": id, "name": name}),
 	}
 
-	print(json.dumps(all_tracks, indent=2))
+	print(json.dumps(tracks, indent=2))
 
 	fname_suffix = sanitize_filename(f" {id}.csv")
-	for existing in glob.glob(f"{playlists_path}/*{fname_suffix}"):
+	for existing in glob.glob(f"{path}/*{fname_suffix}"):
 		os.remove(existing)
 
-	path = f"{playlists_path}/{sanitize_filename(name)}{fname_suffix}"
+	path = f"{path}/{sanitize_filename(name)}{fname_suffix}"
 	with open(path, "w", newline="") as f:
 		w = csv.DictWriter(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL, fieldnames=FIELDS)
 		w.writeheader()
 		w.writerow(meta)
-		w.writerows(all_tracks)
+		w.writerows(tracks)
 
-for playlists in get_all("https://api.spotify.com/v1/users/{}/playlists".format(USER_ID)):
-	for pl in playlists["items"]:
-		owner_id = pl["owner"]["id"]
-		if not pl["public"]:
-			continue
-		pl_name = pl["name"]
-		print(pl_name)
+def main():
+	root_path = os.path.dirname(os.path.realpath(__file__))
+	playlists_path = os.path.join(root_path, "data", "playlists")
+	print(playlists_path)
+	os.makedirs(playlists_path, exist_ok=True)
 
-		all_tracks = []
-		for tracks in get_all(pl["href"] + "/tracks?limit=100"):
-			for track in tracks["items"]:
-				all_tracks.append(make_track_entry(track))
+	r = requests.post("https://accounts.spotify.com/api/token",
+		data={"grant_type": "client_credentials"},
+		auth=(CLIENT_ID, CLIENT_SECRET))
+	check_status(r)
+	token = r.json()["access_token"]
 
-		save_playlist(pl["id"], pl_name, all_tracks)
+	for playlists in get_all("https://api.spotify.com/v1/users/{}/playlists".format(USER_ID), token):
+		for pl in playlists["items"]:
+			owner_id = pl["owner"]["id"]
+			if not pl["public"]:
+				continue
+			pl_name = pl["name"]
+			print(pl_name)
+
+			all_tracks = []
+			for tracks in get_all(pl["href"] + "/tracks?limit=100", token):
+				for track in tracks["items"]:
+					all_tracks.append(make_track_entry(track))
+
+			save_playlist(playlists_path, pl["id"], pl_name, all_tracks)
+
+main()
